@@ -1,0 +1,112 @@
+User
+-----
+Fields:
+- id
+- email
+- password
+- role (SUPERADMIN, ADMIN, STUDENT)
+- createdAt
+- updatedAt
+
+Relations:
+- OneToOne → Student (if role = STUDENT)
+- OneToMany → Course (as createdBy)
+- OneToMany → LessonNoteHistory (as modifiedBy)
+
+
+Student
+-------
+Fields:
+- id
+- nationalId
+- firstName
+- lastName
+- motherName
+- fatherName
+- address
+- phone
+- birthDate
+- createdAt
+- updatedAt
+
+Relations:
+- OneToOne → User
+- OneToMany → LessonNote
+
+
+CourseLocation
+--------------
+Fields:
+- id
+- name
+- address
+- phone
+- createdAt
+- updatedAt
+
+Relations:
+- OneToMany → Course
+
+
+Course
+------
+Fields:
+- id
+- name
+- description
+- startDate
+- endDate
+- createdAt
+- updatedAt
+
+Relations:
+- ManyToOne → CourseLocation
+- ManyToOne → User (createdBy)
+- OneToMany → Lesson
+
+
+Lesson
+------
+Fields:
+- id
+- name
+- description
+- date
+- createdAt
+- updatedAt
+
+Relations:
+- ManyToOne → Course
+- OneToMany → LessonNote
+
+
+LessonNote
+----------
+Fields:
+- id
+- score (Integer)
+- passed (Boolean)
+- remark (String)
+- createdAt
+- updatedAt
+
+Relations:
+- ManyToOne → Student
+- ManyToOne → Lesson
+- OneToMany → LessonNoteHistory
+
+
+LessonNoteHistory
+-----------------
+Fields:
+- id
+- oldScore
+- oldPassed
+- oldRemark
+- changeDate
+- createdAt
+- updatedAt
+
+Relations:
+- ManyToOne → LessonNote
+- ManyToOne → User (modifiedBy)

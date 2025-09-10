@@ -1,0 +1,51 @@
+# JWT Configuration
+app:
+  jwt:
+    secret: ${JWT_SECRET:5A7234753778214125442A472D4B6150645367566B58703273357638792F423F}
+    expiration-ms: 86400000 # 24 hours
+    refresh-expiration-ms: 604800000 # 7 days
+  default:
+    superadmin:
+      username: superadmin
+      password: superadmin123
+    admin:
+      username: admin
+      password: admin123
+
+spring:
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 20
+          order_inserts: true
+          order_updates: true
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    
+  # Enable debug for Spring Security
+  security:
+    debug: true
+
+  datasource:
+    # Dış IP bağlantısı (Internet üzerinden)
+    url: jdbc:postgresql://94.154.32.75:5442/coursedb
+    username: ismail
+    password: dbsifre.1
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
+      idle-timeout: 30000
+      validation-query: SELECT 1  # Bağlantı testi yapacak
+      
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    org.springframework.security: DEBUG
+    com.course.app.security: DEBUG
+    com.course.app.controller: DEBUG
