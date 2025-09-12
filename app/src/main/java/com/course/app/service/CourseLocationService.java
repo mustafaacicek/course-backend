@@ -136,8 +136,17 @@ public class CourseLocationService {
         User currentUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
         
-        // Get locations where the user is an admin
-        List<CourseLocation> locations = courseLocationRepository.findByAdminsContaining(currentUser);
+        List<CourseLocation> locations;
+        
+        // If user is SUPERADMIN, return all locations
+        if (currentUser.getRole() == com.course.app.entity.Role.SUPERADMIN) {
+            System.out.println("DEBUG: User is SUPERADMIN, returning all locations");
+            locations = courseLocationRepository.findAll();
+        } else {
+            // Otherwise, get locations where the user is an admin
+            System.out.println("DEBUG: User is not SUPERADMIN, returning only assigned locations");
+            locations = courseLocationRepository.findByAdminsContaining(currentUser);
+        }
         
         return locations.stream()
                 .map(this::mapToResponse)

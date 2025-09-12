@@ -7,6 +7,7 @@ import com.course.app.entity.Course;
 import com.course.app.entity.CourseLocation;
 import com.course.app.entity.User;
 import com.course.app.exception.ResourceNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
 import com.course.app.repository.CourseLocationRepository;
 import com.course.app.repository.CourseRepository;
 import com.course.app.repository.UserRepository;
@@ -63,6 +64,50 @@ public class CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Kurs bulunamadı: " + id));
         return CourseDTO.fromEntity(course);
     }
+    
+    /**
+     * Get course by ID for admin user (only courses in admin's locations)
+     */
+    public CourseDTO getCourseByIdForAdmin(Long id) {
+        // Get current admin user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı: " + username));
+        
+        // Get admin's locations
+        List<CourseLocation> adminLocations = courseLocationRepository.findByAdminsContaining(currentUser);
+        
+        // Get course by ID
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Kurs bulunamadı: " + id));
+        
+        // Check if course is in admin's locations
+        boolean hasAccess = false;
+        
+        // Check primary location
+        if (course.getCourseLocation() != null) {
+            hasAccess = adminLocations.stream()
+                    .anyMatch(loc -> loc.getId().equals(course.getCourseLocation().getId()));
+        }
+        
+        // Check all locations
+        if (!hasAccess) {
+            for (CourseLocation courseLocation : course.getCourseLocations()) {
+                if (adminLocations.stream().anyMatch(loc -> loc.getId().equals(courseLocation.getId()))) {
+                    hasAccess = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!hasAccess) {
+            throw new AccessDeniedException("Bu kursa erişim yetkiniz yok: " + id);
+        }
+        
+        return CourseDTO.fromEntity(course);
+    }
 
     /**
      * Create a new course
@@ -115,6 +160,18 @@ public class CourseService {
         return CourseDTO.fromEntity(savedCourse);
     }
 
+    /**
+     * Update an existing course for admin user (only courses in admin's locations)
+     */
+    @Transactional
+    public CourseDTO updateCourseForAdmin(Long id, CourseUpdateRequest request) {
+        // First check if admin has access to this course
+        getCourseByIdForAdmin(id); // This will throw AccessDeniedException if admin doesn't have access
+        
+        // If we get here, admin has access, so proceed with update
+        return updateCourse(id, request);
+    }
+    
     /**
      * Update an existing course
      */
@@ -186,6 +243,18 @@ public class CourseService {
         return CourseDTO.fromEntity(updatedCourse);
     }
 
+    /**
+     * Delete a course for admin user (only courses in admin's locations)
+     */
+    @Transactional
+    public void deleteCourseForAdmin(Long id) {
+        // First check if admin has access to this course
+        getCourseByIdForAdmin(id); // This will throw AccessDeniedException if admin doesn't have access
+        
+        // If we get here, admin has access, so proceed with delete
+        deleteCourse(id);
+    }
+    
     /**
      * Delete a course
      */

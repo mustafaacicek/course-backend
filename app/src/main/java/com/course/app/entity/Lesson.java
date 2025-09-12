@@ -28,6 +28,8 @@ public class Lesson {
     
     private LocalDate date;
     
+    private Integer defaultScore;
+    
     @CreationTimestamp
     private LocalDateTime createdAt;
     

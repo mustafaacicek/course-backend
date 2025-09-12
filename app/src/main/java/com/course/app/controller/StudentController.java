@@ -32,7 +32,28 @@ public class StudentController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPERADMIN')")
     public ResponseEntity<List<StudentDTO>> getAllStudents() {
-        return ResponseEntity.ok(studentService.getAllStudents());
+        System.out.println("DEBUG StudentController: getAllStudents endpoint called");
+        
+        // Güvenlik bağlamından mevcut kullanıcı ID'sini ve rolünü al
+        Long currentUserId = com.course.app.util.SecurityUtils.getCurrentUserId();
+        String currentUserRole = com.course.app.util.SecurityUtils.getCurrentUserRole();
+        
+        System.out.println("DEBUG StudentController: currentUserId = " + currentUserId);
+        System.out.println("DEBUG StudentController: currentUserRole = " + currentUserRole);
+        
+        // Eğer kullanıcı ADMIN ise, sadece kendi lokasyonlarındaki öğrencileri getir
+        if (currentUserId != null && "ROLE_ADMIN".equals(currentUserRole)) {
+            System.out.println("DEBUG StudentController: Admin user detected, calling getStudentsByAdminId");
+            List<StudentDTO> adminStudents = studentService.getStudentsByAdminId(currentUserId);
+            System.out.println("DEBUG StudentController: Admin students count = " + adminStudents.size());
+            return ResponseEntity.ok(adminStudents);
+        }
+        
+        // SUPERADMIN için tüm öğrencileri getir
+        System.out.println("DEBUG StudentController: Superadmin or other role, calling getAllStudents");
+        List<StudentDTO> allStudents = studentService.getAllStudents();
+        System.out.println("DEBUG StudentController: All students count = " + allStudents.size());
+        return ResponseEntity.ok(allStudents);
     }
     
     @GetMapping("/{id}")
@@ -72,5 +93,12 @@ public class StudentController {
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPERADMIN')")
     public ResponseEntity<?> getStudentAdminId(@PathVariable Long id) {
         return ResponseEntity.ok(studentService.getStudentAdmin(id));
+    }
+    
+    @PutMapping("/{id}/teacher-comment")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPERADMIN')")
+    public ResponseEntity<StudentDTO> updateTeacherComment(@PathVariable Long id, @RequestBody String teacherComment) {
+        StudentDTO updatedStudent = studentService.updateTeacherComment(id, teacherComment);
+        return ResponseEntity.ok(updatedStudent);
     }
 }

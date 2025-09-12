@@ -43,6 +43,8 @@ public class User {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
     
+    private LocalDateTime lastLoginAt;
+    
     // Relations
     @OneToOne(mappedBy = "user")
     private Student student;

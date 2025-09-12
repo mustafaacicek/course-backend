@@ -4,6 +4,7 @@ import com.course.app.dto.CourseCreateRequest;
 import com.course.app.dto.CourseDTO;
 import com.course.app.dto.CourseUpdateRequest;
 import com.course.app.service.CourseService;
+import com.course.app.util.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,7 +24,15 @@ public class CourseController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPERADMIN')")
     public ResponseEntity<List<CourseDTO>> getAllCourses() {
-        return ResponseEntity.ok(courseService.getAllCourses());
+        String currentRole = SecurityUtils.getCurrentUserRole();
+        
+        if ("ROLE_ADMIN".equals(currentRole)) {
+            // Admin kullanıcısı için sadece kendi lokasyonlarındaki kursları getir
+            return ResponseEntity.ok(courseService.getCoursesForCurrentAdmin());
+        } else {
+            // Superadmin için tüm kursları getir
+            return ResponseEntity.ok(courseService.getAllCourses());
+        }
     }
     
     @GetMapping("/admin")
@@ -35,7 +44,15 @@ public class CourseController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPERADMIN')")
     public ResponseEntity<CourseDTO> getCourseById(@PathVariable Long id) {
-        return ResponseEntity.ok(courseService.getCourseById(id));
+        String currentRole = SecurityUtils.getCurrentUserRole();
+        
+        if ("ROLE_ADMIN".equals(currentRole)) {
+            // Admin kullanıcısı için sadece kendi lokasyonlarındaki kursları kontrol et
+            return ResponseEntity.ok(courseService.getCourseByIdForAdmin(id));
+        } else {
+            // Superadmin için tüm kursları getir
+            return ResponseEntity.ok(courseService.getCourseById(id));
+        }
     }
     
     @PostMapping
@@ -48,14 +65,32 @@ public class CourseController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPERADMIN')")
     public ResponseEntity<CourseDTO> updateCourse(@PathVariable Long id, @Valid @RequestBody CourseUpdateRequest request) {
-        CourseDTO updatedCourse = courseService.updateCourse(id, request);
-        return ResponseEntity.ok(updatedCourse);
+        String currentRole = SecurityUtils.getCurrentUserRole();
+        
+        if ("ROLE_ADMIN".equals(currentRole)) {
+            // Admin kullanıcısı için sadece kendi lokasyonlarındaki kursları güncelleyebilir
+            CourseDTO updatedCourse = courseService.updateCourseForAdmin(id, request);
+            return ResponseEntity.ok(updatedCourse);
+        } else {
+            // Superadmin için tüm kursları güncelleyebilir
+            CourseDTO updatedCourse = courseService.updateCourse(id, request);
+            return ResponseEntity.ok(updatedCourse);
+        }
     }
     
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPERADMIN')")
     public ResponseEntity<Void> deleteCourse(@PathVariable Long id) {
-        courseService.deleteCourse(id);
+        String currentRole = SecurityUtils.getCurrentUserRole();
+        
+        if ("ROLE_ADMIN".equals(currentRole)) {
+            // Admin kullanıcısı için sadece kendi lokasyonlarındaki kursları silebilir
+            courseService.deleteCourseForAdmin(id);
+        } else {
+            // Superadmin için tüm kursları silebilir
+            courseService.deleteCourse(id);
+        }
+        
         return ResponseEntity.noContent().build();
     }
     

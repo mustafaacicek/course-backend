@@ -4,6 +4,8 @@ import com.course.app.entity.CourseLocation;
 import com.course.app.entity.Student;
 import com.course.app.entity.StudentCourseLocation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,4 +21,12 @@ public interface StudentCourseLocationRepository extends JpaRepository<StudentCo
     Optional<StudentCourseLocation> findByStudentAndCourseLocation(Student student, CourseLocation courseLocation);
     
     boolean existsByStudentAndCourseLocation(Student student, CourseLocation courseLocation);
+    
+    /**
+     * Count students in a specific location
+     * @param locationId Location ID
+     * @return Number of students in the location
+     */
+    @Query("SELECT COUNT(scl) FROM StudentCourseLocation scl WHERE scl.courseLocation.id = :locationId")
+    int countByLocationId(@Param("locationId") Long locationId);
 }

@@ -1,5 +1,6 @@
 package com.course.app.service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -13,6 +14,7 @@ import com.course.app.dto.StudentDTO;
 import com.course.app.dto.StudentUpdateRequest;
 import com.course.app.dto.UserSummaryDTO;
 import com.course.app.entity.CourseLocation;
+import com.course.app.entity.LessonNote;
 import com.course.app.entity.Student;
 import com.course.app.entity.StudentCourseLocation;
 import com.course.app.entity.User;
@@ -20,6 +22,8 @@ import com.course.app.entity.Role;
 import com.course.app.exception.ResourceAlreadyExistsException;
 import com.course.app.exception.ResourceNotFoundException;
 import com.course.app.repository.CourseLocationRepository;
+import com.course.app.repository.LessonNoteHistoryRepository;
+import com.course.app.repository.LessonNoteRepository;
 import com.course.app.repository.StudentCourseLocationRepository;
 import com.course.app.repository.StudentRepository;
 import com.course.app.repository.UserRepository;
@@ -34,6 +38,8 @@ public class StudentService {
     private final UserRepository userRepository;
     private final CourseLocationRepository courseLocationRepository;
     private final StudentCourseLocationRepository studentCourseLocationRepository;
+    private final LessonNoteRepository lessonNoteRepository;
+    private final LessonNoteHistoryRepository lessonNoteHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     
     public List<StudentDTO> getAllStudents() {
@@ -61,17 +67,40 @@ public class StudentService {
             throw new ResourceAlreadyExistsException("Bu TC Kimlik No ile kayıtlı öğrenci zaten mevcut: " + request.getNationalId());
         }
         
-        // Check if username already exists
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new ResourceAlreadyExistsException("Bu kullanıcı adı zaten kullanılıyor: " + request.getUsername());
-        }
+        User savedUser;
         
-        // Create user for student
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(Role.STUDENT);
-        User savedUser = userRepository.save(user);
+        // Create user for student if username and password are provided
+        if (request.getUsername() != null && !request.getUsername().isEmpty() && 
+            request.getPassword() != null && !request.getPassword().isEmpty()) {
+            
+            // Check if username already exists
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new ResourceAlreadyExistsException("Bu kullanıcı adı zaten kullanılıyor: " + request.getUsername());
+            }
+            
+            User user = new User();
+            user.setUsername(request.getUsername());
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+            user.setRole(Role.STUDENT);
+            savedUser = userRepository.save(user);
+        } else {
+            // Generate a username and password if not provided
+            String generatedUsername = "student_" + request.getNationalId();
+            String generatedPassword = request.getNationalId(); // Using nationalId as default password
+            
+            // Ensure the generated username is unique
+            int counter = 1;
+            while (userRepository.existsByUsername(generatedUsername)) {
+                generatedUsername = "student_" + request.getNationalId() + "_" + counter;
+                counter++;
+            }
+            
+            User user = new User();
+            user.setUsername(generatedUsername);
+            user.setPassword(passwordEncoder.encode(generatedPassword));
+            user.setRole(Role.STUDENT);
+            savedUser = userRepository.save(user);
+        }
         
         // Create student
         Student student = new Student();
@@ -87,8 +116,19 @@ public class StudentService {
         
         Student savedStudent = studentRepository.save(student);
         
-        // If adminId is provided, assign student to admin's course locations
-        if (request.getAdminId() != null) {
+        // If locationId is provided, assign student to that specific location
+        if (request.getLocationId() != null) {
+            CourseLocation location = courseLocationRepository.findById(request.getLocationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Lokasyon bulunamadı: " + request.getLocationId()));
+            
+            // Assign student to the specified location
+            StudentCourseLocation assignment = new StudentCourseLocation();
+            assignment.setStudent(savedStudent);
+            assignment.setCourseLocation(location);
+            studentCourseLocationRepository.save(assignment);
+        }
+        // If adminId is provided but no locationId, assign student to admin's course locations
+        else if (request.getAdminId() != null) {
             User admin = userRepository.findById(request.getAdminId())
                     .orElseThrow(() -> new ResourceNotFoundException("Admin bulunamadı: " + request.getAdminId()));
             
@@ -204,10 +244,91 @@ public class StudentService {
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Öğrenci bulunamadı: " + id));
         
-        // Delete associated user
-        userRepository.delete(student.getUser());
+        // Öğrencinin kullanıcı bilgisini al
+        User user = student.getUser();
         
-        // Student will be deleted by cascade
+        // Öğrencinin ders notlarını bul
+        List<LessonNote> lessonNotes = lessonNoteRepository.findByStudentId(id);
+        
+        // Her bir ders notu için
+        for (LessonNote note : lessonNotes) {
+            // Önce ders notu geçmişlerini sil
+            lessonNoteHistoryRepository.deleteByLessonNoteId(note.getId());
+        }
+        
+        // Ders notlarını sil
+        lessonNoteRepository.deleteByStudentId(id);
+        
+        // Öğrencinin kurs lokasyonlarını temizle
+        if (student.getCourseLocations() != null && !student.getCourseLocations().isEmpty()) {
+            studentCourseLocationRepository.deleteAll(student.getCourseLocations());
+        }
+        
+        // Öğrenciyi sil
+        studentRepository.delete(student);
+        
+        // İlişkili kullanıcıyı sil
+        if (user != null) {
+            userRepository.delete(user);
+        }
+    }
+    
+    /**
+     * Calculate and update the total score for a student based on passed lessons
+     * @param studentId The student ID
+     */
+    @Transactional
+    public void updateStudentTotalScore(Long studentId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Öğrenci bulunamadı: " + studentId));
+        
+        // Get all lesson notes for the student
+        List<LessonNote> lessonNotes = lessonNoteRepository.findByStudentId(studentId);
+        
+        // Calculate total score from passed lessons with defaultScore or score
+        int totalScore = 0;
+        for (LessonNote note : lessonNotes) {
+            if (Boolean.TRUE.equals(note.getPassed()) && note.getLesson() != null) {
+                if (note.getLesson().getDefaultScore() != null) {
+                    totalScore += note.getLesson().getDefaultScore();
+                } else if (note.getScore() != null) {
+                    totalScore += note.getScore();
+                }
+            }
+        }
+        
+        // Update student's total score
+        student.setTotalScore(totalScore);
+        studentRepository.save(student);
+    }
+    
+    /**
+     * Get the total score for a student
+     * @param studentId The student ID
+     * @return The total score
+     */
+    public Integer getStudentTotalScore(Long studentId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Öğrenci bulunamadı: " + studentId));
+        
+        return student.getTotalScore();
+    }
+    
+    /**
+     * Update teacher comment for a student
+     * @param studentId The student ID
+     * @param teacherComment The teacher comment
+     * @return The updated student DTO
+     */
+    @Transactional
+    public StudentDTO updateTeacherComment(Long studentId, String teacherComment) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Öğrenci bulunamadı: " + studentId));
+        
+        student.setTeacherComment(teacherComment);
+        Student updatedStudent = studentRepository.save(student);
+        
+        return convertToDTO(updatedStudent);
     }
     
     /**
@@ -269,6 +390,75 @@ public class StudentService {
         return adminDTO;
     }
     
+    /**
+     * Admin'in kendi lokasyonlarındaki öğrencileri getir
+     * @param adminId Admin ID'si
+     * @return Öğrenci DTO listesi
+     */
+    public List<StudentDTO> getStudentsByAdminId(Long adminId) {
+        System.out.println("DEBUG StudentService: getStudentsByAdminId called with adminId = " + adminId);
+        
+        // Admin kullanıcısını kontrol et
+        User admin = userRepository.findById(adminId).orElse(null);
+        if (admin == null) {
+            System.out.println("DEBUG StudentService: Admin user not found with ID = " + adminId);
+            return Collections.emptyList();
+        }
+        
+        System.out.println("DEBUG StudentService: Found admin user = " + admin.getUsername() + ", role = " + admin.getRole());
+        
+        // Admin'in lokasyonlarını kontrol et
+        List<CourseLocation> adminLocations = courseLocationRepository.findByAdminsContaining(admin);
+        System.out.println("DEBUG StudentService: Admin has " + adminLocations.size() + " locations");
+        
+        for (CourseLocation location : adminLocations) {
+            System.out.println("DEBUG StudentService: Admin location = " + location.getName() + " (ID: " + location.getId() + ")");
+        }
+        
+        if (adminLocations.isEmpty()) {
+            System.out.println("DEBUG StudentService: Admin has no locations, returning empty list");
+            return Collections.emptyList();
+        }
+        
+        // Repository metodunu kullanarak admin ID'sine göre öğrencileri bul
+        List<Student> students = studentRepository.findByLocationAdminId(adminId);
+        System.out.println("DEBUG StudentService: Found " + students.size() + " students for admin ID = " + adminId);
+        
+        for (Student student : students) {
+            System.out.println("DEBUG StudentService: Student = " + student.getFirstName() + " " + student.getLastName() + " (ID: " + student.getId() + ")");
+        }
+        
+        // DTO'lara dönüştür
+        List<StudentDTO> studentDTOs = students.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+        
+        System.out.println("DEBUG StudentService: Returning " + studentDTOs.size() + " student DTOs");
+        return studentDTOs;
+    }
+    
+    /**
+     * Kullanıcı ID'sine göre kullanıcıyı getir
+     * @param userId Kullanıcı ID'si
+     * @return Kullanıcı nesnesi veya null
+     */
+    public User getUserById(Long userId) {
+        return userRepository.findById(userId).orElse(null);
+    }
+    
+    /**
+     * Admin'in lokasyonlarını getir
+     * @param adminId Admin ID'si
+     * @return Admin'in lokasyonları
+     */
+    public List<CourseLocation> getAdminLocations(Long adminId) {
+        User admin = userRepository.findById(adminId).orElse(null);
+        if (admin == null) {
+            return Collections.emptyList();
+        }
+        return courseLocationRepository.findByAdminsContaining(admin);
+    }
+    
     private StudentDTO convertToDTO(Student student) {
         StudentDTO dto = new StudentDTO();
         dto.setId(student.getId());
@@ -280,6 +470,8 @@ public class StudentService {
         dto.setAddress(student.getAddress());
         dto.setPhone(student.getPhone());
         dto.setBirthDate(student.getBirthDate());
+        dto.setTotalScore(student.getTotalScore());
+        dto.setTeacherComment(student.getTeacherComment());
         
         if (student.getUser() != null) {
             dto.setUserId(student.getUser().getId());

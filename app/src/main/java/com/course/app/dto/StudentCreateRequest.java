@@ -43,13 +43,14 @@ public class StudentCreateRequest {
     @Past(message = "Doğum tarihi geçmiş bir tarih olmalıdır")
     private LocalDate birthDate;
     
-    @NotBlank(message = "Kullanıcı adı boş olamaz")
+    // Username and password are now optional
     @Size(min = 3, max = 50, message = "Kullanıcı adı 3-50 karakter arasında olmalıdır")
     private String username;
     
-    @NotBlank(message = "Şifre boş olamaz")
     @Size(min = 6, message = "Şifre en az 6 karakter olmalıdır")
     private String password;
     
     private Long adminId; // Admin ID to automatically assign student to admin's course location
+    
+    private Long locationId; // Course location ID for student assignment
 }

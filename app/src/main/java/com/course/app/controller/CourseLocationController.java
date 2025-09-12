@@ -67,7 +67,7 @@ public class CourseLocationController {
     }
     
     @GetMapping("/admin")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<List<CourseLocationResponse>> getLocationsForCurrentAdmin() {
         return ResponseEntity.ok(courseLocationService.getLocationsForCurrentAdmin());
     }

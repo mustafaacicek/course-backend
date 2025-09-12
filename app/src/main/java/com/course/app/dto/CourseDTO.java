@@ -26,6 +26,7 @@ public class CourseDTO {
     private List<CourseLocationDTO> courseLocations;
     private CourseLocationDTO courseLocation; // For backward compatibility
     private UserSummaryDTO createdBy;
+    private List<LessonDTO> lessons;
     
     // Static method to convert entity to DTO
     public static CourseDTO fromEntity(Course course) {
@@ -53,7 +54,7 @@ public class CourseDTO {
         
         // For backward compatibility
         if (course.getCourseLocation() != null) {
-            dto.setCourseLocation(CourseLocationDTO.fromEntity(course.getCourseLocation()));
+            dto.setCourseLocation(CourseLocationDTO .fromEntity(course.getCourseLocation()));
         }
         
         if (course.getCreatedBy() != null) {

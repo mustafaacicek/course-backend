@@ -39,7 +39,7 @@ public class LessonNoteHistory {
     @JoinColumn(name = "lesson_note_id")
     private LessonNote lessonNote;
     
-    @ManyToOne
-    @JoinColumn(name = "modified_by_id")
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "modified_by_id", nullable = true)
     private User modifiedBy;
 }

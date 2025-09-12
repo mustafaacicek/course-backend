@@ -1,20 +1,19 @@
 package com.course.app.dto;
 
+import com.course.app.entity.LessonNote;
 import com.course.app.entity.Student;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class StudentDTO {
-    
+public class StudentLessonNoteDTO {
     private Long id;
     private String nationalId;
     private String firstName;
@@ -24,19 +23,12 @@ public class StudentDTO {
     private String address;
     private String phone;
     private LocalDate birthDate;
-    private Integer totalScore;
-    private String teacherComment;
     private Long userId;
     private String username;
-    private LocalDate createdAt;
-    private LocalDate updatedAt;
-    private List<CourseLocationDTO> courseLocations;
-    
-    // Static method to convert entity to DTO
-    public static StudentDTO fromEntity(Student student) {
-        if (student == null) return null;
-        
-        StudentDTO dto = new StudentDTO();
+    private LessonNoteDTO lessonNote; // Current lesson note for the specified lesson, if exists
+
+    public static StudentLessonNoteDTO fromEntity(Student student, Long lessonId) {
+        StudentLessonNoteDTO dto = new StudentLessonNoteDTO();
         dto.setId(student.getId());
         dto.setNationalId(student.getNationalId());
         dto.setFirstName(student.getFirstName());
@@ -46,26 +38,30 @@ public class StudentDTO {
         dto.setAddress(student.getAddress());
         dto.setPhone(student.getPhone());
         dto.setBirthDate(student.getBirthDate());
-        dto.setTotalScore(student.getTotalScore());
-        dto.setTeacherComment(student.getTeacherComment());
         
         if (student.getUser() != null) {
             dto.setUserId(student.getUser().getId());
             dto.setUsername(student.getUser().getUsername());
         }
         
-        dto.setCreatedAt(student.getCreatedAt() != null ? student.getCreatedAt().toLocalDate() : null);
-        dto.setUpdatedAt(student.getUpdatedAt() != null ? student.getUpdatedAt().toLocalDate() : null);
+        // Find the lesson note for the specified lesson
+        if (student.getLessonNotes() != null && !student.getLessonNotes().isEmpty()) {
+            LessonNote note = student.getLessonNotes().stream()
+                .filter(ln -> ln.getLesson() != null && ln.getLesson().getId().equals(lessonId))
+                .findFirst()
+                .orElse(null);
+            
+            if (note != null) {
+                dto.setLessonNote(LessonNoteDTO.fromEntity(note));
+            }
+        }
         
         return dto;
     }
     
-    // Convert list of entities to list of DTOs
-    public static List<StudentDTO> fromEntities(List<Student> students) {
-        if (students == null) return new ArrayList<>();
-        
+    public static List<StudentLessonNoteDTO> fromEntities(List<Student> students, Long lessonId) {
         return students.stream()
-                .map(StudentDTO::fromEntity)
-                .collect(Collectors.toList());
+            .map(student -> fromEntity(student, lessonId))
+            .collect(Collectors.toList());
     }
 }

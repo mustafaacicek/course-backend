@@ -40,6 +40,11 @@ public class Student {
     
     private LocalDate birthDate;
     
+    private Integer totalScore = 0;
+    
+    @Column(columnDefinition = "TEXT")
+    private String teacherComment;
+    
     @CreationTimestamp
     private LocalDateTime createdAt;
     
