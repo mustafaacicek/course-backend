@@ -1,0 +1,62 @@
+# JWT Configuration
+app:
+  jwt:
+    secret: ${JWT_SECRET:5A7234753778214125442A472D4B6150645367566B58703273357638792F423F}
+    expiration-ms: 86400000 # 24 hours
+    refresh-expiration-ms: 604800000 # 7 days
+  default:
+    superadmin:
+      username: ${SUPERADMIN_USERNAME:superadmin}
+      password: ${SUPERADMIN_PASSWORD:superadmin123}
+    admin:
+      username: ${ADMIN_USERNAME:admin}
+      password: ${ADMIN_PASSWORD:admin123}
+
+spring:
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 20
+          order_inserts: true
+          order_updates: true
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    
+  # Disable debug for production
+  security:
+    debug: false
+
+  datasource:
+    url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5432/coursedb}
+    username: ${JDBC_DATABASE_USERNAME:postgres}
+    password: ${JDBC_DATABASE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
+      idle-timeout: 30000
+      validation-query: SELECT 1
+      
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    org.springframework.security: INFO
+    com.course.app.security: INFO
+    com.course.app.controller: INFO
+
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+    min-response-size: 1024
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 20
