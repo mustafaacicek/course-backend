@@ -50,8 +50,21 @@ public class CourseService {
         // Get all course locations where the admin is assigned
         List<CourseLocation> adminLocations = courseLocationRepository.findByAdminsContaining(currentUser);
         
-        // Get all courses for these locations
-        return courseRepository.findByCourseLocationIn(adminLocations).stream()
+        // Get all courses for these locations - using both legacy and new methods
+        List<Course> legacyCourses = courseRepository.findByCourseLocationIn(adminLocations);
+        List<Course> newCourses = new java.util.ArrayList<>();
+        
+        // For each admin location, find courses that have this location in their courseLocations list
+        for (CourseLocation location : adminLocations) {
+            newCourses.addAll(courseRepository.findByCourseLocationsContaining(location));
+        }
+        
+        // Combine both lists and remove duplicates
+        java.util.Set<Course> allCourses = new java.util.HashSet<>(legacyCourses);
+        allCourses.addAll(newCourses);
+        
+        // Convert to DTOs
+        return allCourses.stream()
                 .map(CourseDTO::fromEntity)
                 .collect(Collectors.toList());
     }
@@ -338,6 +351,37 @@ public class CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Kurs lokasyonu bulunamadı: " + locationId));
         
         return courseRepository.findByCourseLocationsContaining(location).stream()
+                .map(CourseDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get all courses for a specific location for admin user (only if admin has access to this location)
+     */
+    public List<CourseDTO> getCoursesByLocationIdForAdmin(Long locationId) {
+        // Get current admin user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı: " + username));
+        
+        // Get admin's locations
+        List<CourseLocation> adminLocations = courseLocationRepository.findByAdminsContaining(currentUser);
+        
+        // Check if admin has access to this location
+        CourseLocation requestedLocation = courseLocationRepository.findById(locationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kurs lokasyonu bulunamadı: " + locationId));
+        
+        boolean hasAccess = adminLocations.stream()
+                .anyMatch(loc -> loc.getId().equals(requestedLocation.getId()));
+        
+        if (!hasAccess) {
+            throw new AccessDeniedException("Bu lokasyona erişim yetkiniz yok: " + locationId);
+        }
+        
+        // If admin has access, return courses for this location
+        return courseRepository.findByCourseLocationsContaining(requestedLocation).stream()
                 .map(CourseDTO::fromEntity)
                 .collect(Collectors.toList());
     }

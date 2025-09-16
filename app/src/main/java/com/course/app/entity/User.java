@@ -52,6 +52,9 @@ public class User {
     @OneToMany(mappedBy = "createdBy")
     private List<Course> courses;
     
+    @OneToMany(mappedBy = "createdBy")
+    private List<Lesson> lessons;
+    
     @OneToMany(mappedBy = "modifiedBy")
     private List<LessonNoteHistory> lessonNoteHistories;
     

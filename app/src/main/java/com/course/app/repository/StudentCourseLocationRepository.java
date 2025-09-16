@@ -29,4 +29,12 @@ public interface StudentCourseLocationRepository extends JpaRepository<StudentCo
      */
     @Query("SELECT COUNT(scl) FROM StudentCourseLocation scl WHERE scl.courseLocation.id = :locationId")
     int countByLocationId(@Param("locationId") Long locationId);
+    
+    /**
+     * Find all student-course location mappings for a specific location
+     * @param courseLocationId Location ID
+     * @return List of student-course location mappings
+     */
+    @Query("SELECT scl FROM StudentCourseLocation scl WHERE scl.courseLocation.id = :courseLocationId")
+    List<StudentCourseLocation> findByCourseLocationId(@Param("courseLocationId") Long courseLocationId);
 }

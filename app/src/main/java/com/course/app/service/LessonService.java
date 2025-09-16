@@ -5,9 +5,13 @@ import com.course.app.dto.LessonDTO;
 import com.course.app.dto.LessonUpdateRequest;
 import com.course.app.entity.Course;
 import com.course.app.entity.Lesson;
+import com.course.app.entity.User;
 import com.course.app.exception.ResourceNotFoundException;
+import com.course.app.exception.UnauthorizedException;
 import com.course.app.repository.CourseRepository;
 import com.course.app.repository.LessonRepository;
+import com.course.app.repository.UserRepository;
+import com.course.app.util.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,11 +23,13 @@ public class LessonService {
 
     private final LessonRepository lessonRepository;
     private final CourseRepository courseRepository;
+    private final UserRepository userRepository;
 
     @Autowired
-    public LessonService(LessonRepository lessonRepository, CourseRepository courseRepository) {
+    public LessonService(LessonRepository lessonRepository, CourseRepository courseRepository, UserRepository userRepository) {
         this.lessonRepository = lessonRepository;
         this.courseRepository = courseRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -64,6 +70,15 @@ public class LessonService {
         Course course = courseRepository.findById(request.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
 
+        // Get current user
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new UnauthorizedException("User must be authenticated to create a lesson");
+        }
+        
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + currentUserId));
+
         // Create new lesson
         Lesson lesson = new Lesson();
         lesson.setName(request.getName());
@@ -71,6 +86,7 @@ public class LessonService {
         lesson.setDate(request.getDate());
         lesson.setDefaultScore(request.getDefaultScore());
         lesson.setCourse(course);
+        lesson.setCreatedBy(currentUser); // Set the creator
 
         // Save and return
         Lesson savedLesson = lessonRepository.save(lesson);
@@ -117,12 +133,30 @@ public class LessonService {
 
     /**
      * Delete a lesson
+     * Only the creator of the lesson or a superadmin can delete it
      */
     @Transactional
     public void deleteLesson(Long id) {
-        // Check if lesson exists
-        if (!lessonRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Lesson not found with id: " + id);
+        // Find the lesson
+        Lesson lesson = lessonRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson not found with id: " + id));
+        
+        // Get current user
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new UnauthorizedException("User must be authenticated to delete a lesson");
+        }
+        
+        // Check if user is superadmin
+        boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+        
+        // Check if user is the creator of the lesson
+        boolean isCreator = lesson.getCreatedBy() != null && 
+                            lesson.getCreatedBy().getId().equals(currentUserId);
+        
+        // Only allow deletion if user is superadmin or the creator
+        if (!isSuperAdmin && !isCreator) {
+            throw new UnauthorizedException("Only the creator of the lesson or a superadmin can delete it");
         }
         
         lessonRepository.deleteById(id);

@@ -459,6 +459,53 @@ public class StudentService {
         return courseLocationRepository.findByAdminsContaining(admin);
     }
     
+    /**
+     * Belirli bir lokasyondaki öğrencileri getir
+     * @param locationId Lokasyon ID'si
+     * @return Öğrenci DTO listesi
+     */
+    public List<StudentDTO> getStudentsByLocationId(Long locationId) {
+        // Lokasyonu kontrol et
+        CourseLocation location = courseLocationRepository.findById(locationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lokasyon bulunamadı: " + locationId));
+        
+        // Bu lokasyondaki öğrencileri bul
+        List<StudentCourseLocation> studentLocations = studentCourseLocationRepository.findByCourseLocationId(locationId);
+        
+        // Öğrenci listesini oluştur
+        List<Student> students = studentLocations.stream()
+                .map(StudentCourseLocation::getStudent)
+                .collect(Collectors.toList());
+        
+        // DTO'lara dönüştür
+        return students.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Admin'in belirli bir lokasyona erişim yetkisi olup olmadığını kontrol et
+     * @param adminId Admin ID'si
+     * @param locationId Lokasyon ID'si
+     * @return Erişim yetkisi varsa true, yoksa false
+     */
+    public boolean adminHasAccessToLocation(Long adminId, Long locationId) {
+        // Admin kullanıcısını kontrol et
+        User admin = userRepository.findById(adminId).orElse(null);
+        if (admin == null) {
+            return false;
+        }
+        
+        // Lokasyonu kontrol et
+        CourseLocation location = courseLocationRepository.findById(locationId).orElse(null);
+        if (location == null) {
+            return false;
+        }
+        
+        // Admin'in bu lokasyona erişim yetkisi var mı kontrol et
+        return location.getAdmins() != null && location.getAdmins().contains(admin);
+    }
+    
     private StudentDTO convertToDTO(Student student) {
         StudentDTO dto = new StudentDTO();
         dto.setId(student.getId());

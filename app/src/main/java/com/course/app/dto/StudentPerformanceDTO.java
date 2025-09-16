@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -41,4 +42,7 @@ public class StudentPerformanceDTO {
     private double attendanceRate; // Percentage of lessons attended
     private String performanceLevel; // "Excellent", "Good", "Average", "Needs Improvement"
     private String teacherComment; // General comment about student's performance
+    
+    // Attendance information
+    private Map<String, Object> attendanceData; // Attendance statistics and records
 }

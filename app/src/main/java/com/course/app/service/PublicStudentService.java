@@ -18,6 +18,7 @@ public class PublicStudentService {
 
     private final StudentRepository studentRepository;
     private final LessonNoteRepository lessonNoteRepository;
+    private final AttendanceService attendanceService;
 
     /**
      * Get student performance details by national ID
@@ -230,6 +231,15 @@ public class PublicStudentService {
                 teacherComment = "Öğrencimizin derslere katılımı ve çalışma düzeni geliştirilmelidir. Veli görüşmesi tavsiye edilir.";
             }
             performanceDTO.setTeacherComment(teacherComment);
+        }
+        
+        // Get attendance data for the student
+        try {
+            Map<String, Object> attendanceData = attendanceService.getStudentAttendanceDetails(student.getId());
+            performanceDTO.setAttendanceData(attendanceData);
+        } catch (Exception e) {
+            // If there's an error getting attendance data, just log it and continue
+            System.err.println("Error getting attendance data for student " + student.getId() + ": " + e.getMessage());
         }
         
         return performanceDTO;

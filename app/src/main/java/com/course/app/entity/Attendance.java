@@ -9,42 +9,44 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
-@Table(name = "lessons")
+@Table(name = "attendances")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Lesson {
+public class Attendance {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String name;
+    @ManyToOne
+    @JoinColumn(name = "student_id")
+    private Student student;
     
-    private String description;
+    @ManyToOne
+    @JoinColumn(name = "course_id")
+    private Course course;
     
-    private LocalDate date;
+    @ManyToOne
+    @JoinColumn(name = "course_location_id")
+    private CourseLocation courseLocation;
     
-    private Integer defaultScore;
+    private LocalDate attendanceDate;
+    
+    private Boolean isPresent;
+    
+    @Column(columnDefinition = "TEXT")
+    private String notes;
+    
+    @ManyToOne
+    @JoinColumn(name = "created_by_id")
+    private User createdBy;
     
     @CreationTimestamp
     private LocalDateTime createdAt;
     
     @UpdateTimestamp
     private LocalDateTime updatedAt;
-    
-    // Relations
-    @ManyToOne
-    @JoinColumn(name = "course_id")
-    private Course course;
-    
-    @ManyToOne
-    @JoinColumn(name = "created_by_id")
-    private User createdBy;
-    
-    @OneToMany(mappedBy = "lesson")
-    private List<LessonNote> lessonNotes;
 }

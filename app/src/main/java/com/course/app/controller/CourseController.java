@@ -100,9 +100,17 @@ public class CourseController {
      * Get courses for a specific location
      */
     @GetMapping("/location/{locationId}")
-    @PreAuthorize("hasAuthority('ROLE_SUPERADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_SUPERADMIN')")
     public ResponseEntity<List<CourseDTO>> getCoursesByLocationId(@PathVariable Long locationId) {
-        return ResponseEntity.ok(courseService.getCoursesByLocationId(locationId));
+        String currentRole = SecurityUtils.getCurrentUserRole();
+        
+        if ("ROLE_ADMIN".equals(currentRole)) {
+            // Admin kullanıcısı için sadece kendi lokasyonlarındaki kursları getir
+            return ResponseEntity.ok(courseService.getCoursesByLocationIdForAdmin(locationId));
+        } else {
+            // Superadmin için tüm kursları getir
+            return ResponseEntity.ok(courseService.getCoursesByLocationId(locationId));
+        }
     }
     
     /**
